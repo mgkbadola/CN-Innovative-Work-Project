@@ -52,7 +52,7 @@ while True:
 
 socket = s.socket(s.AF_INET, s.SOCK_STREAM)
 socket.bind(('127.0.0.1', 80))
-socket.listen(5)
+socket.listen()
 client_open = False
 
 while True:
@@ -62,10 +62,18 @@ while True:
 
     while client_open:
         message = client.recv(1024).decode("utf-8")
+        if message == "2":
+            client_open = False
+            break
         letters = set(message)
+        if ' ' in letters:
+            letters.remove(' ')
 
         size = 0
         word = client.recv(1024).decode("utf-8")
+        if word == "2":
+            client_open = False
+            break
         word_set = set(word)
 
         maxima = 0
@@ -77,28 +85,20 @@ while True:
                     maxima = len(words)
                     max_word = words
 
-        dict_fail = False
-        is_in_dict = False
-        if word in dictionary.refer(word[0]):
-            if word_set.issubset(letters):
-                is_in_dict = True
+        if max_word == '':
+            client.send(bytes('It is not possible to make a valid word!Hence this round won\'t be counted', 'utf-8'))
         else:
-            if max_word != '':
-                client.send(bytes('It is not a valid word', 'utf-8'))
+            if word in dictionary.refer(word[0]):
+                if word_set.issubset(letters):
+                    client.send(bytes(f"You scored {len(word)}/{len(max_word)}!"
+                                      f"Longest word: {max_word}", 'utf-8'))
+                else:
+                    client.send(bytes(f"You scored 0/{len(max_word)}! "
+                                      f"Subset check failed!Longest word: {max_word}", 'utf-8'))
             else:
-                client.send(bytes('It is not possible to make a valid word', 'utf-8'))
-                dict_fail = True
-        # no word can be built
-        if dict_fail:
-            client.send(bytes("Hence this round won't be counted!"))
-        else:
-            # if the word is in dictionary
-            if is_in_dict:
-                client.send(bytes(f"{len(max_word)-len(word)} points to you, well done! "
-                                  f"Longest word: {max_word}", 'utf-8'))
-            else:
-                client.send(bytes('Your word wasn\'t present in the dictionary', 'utf-8'))
+                client.send(bytes(f'You scored 0/{len(max_word)}!Your word wasn\'t present in the dictionary!'
+                                  f'Longest word: {max_word}', 'utf-8'))
 
-        client_open = False
-    
+        # client_open = False
+
     client.close()
